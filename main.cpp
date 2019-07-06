@@ -1,4 +1,5 @@
 #include <iostream>
+#include <string>
 #include "result.h"
 
 using namespace davinci;
@@ -20,6 +21,16 @@ struct My_test {
 auto get_my_test() -> My_test { return My_test{}; }
 
 auto may_get_err() -> Result<void, int> { return Ok<void>{}; }
+
+auto may_get_err(int value) -> Result<int, std::string>
+{
+  if (value < 0) {
+    return Err(std::string{"Input is less then 0"});
+  }
+  else {
+    return Ok(value * value);
+  }
+}
 
 int main()
 {
@@ -64,6 +75,26 @@ int main()
     match_result(may_get_err() /*******/,
                  [](Ok<void> value) { std::cout << "value!\n"; },
                  [](const Err<int>& err) { std::cout << "err!\n"; });
+  }
+  {
+    std::cout << ".11\n";
+    match_result(may_get_err(20) /*******/,
+                 [](const Ok<int>& value) {
+                   std::cout << "value: " << value.value << "\n";
+                 },
+                 [](const Err<std::string>& err) {
+                   std::cout << "err: " << err.value << "\n";
+                 });
+  }
+  {
+    std::cout << ".12\n";
+    match_result(may_get_err(-20),
+                 [](const Ok<int>& value) {
+                   std::cout << "value: " << value.value << "\n";
+                 },
+                 [](const Err<std::string>& err) {
+                   std::cout << "err: " << err.value << "\n";
+                 });
   }
 
   std::cout << "Error handling demo.\n";

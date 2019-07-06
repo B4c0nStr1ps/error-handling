@@ -18,16 +18,27 @@
   }
 #endif  // DEBUG
 
-#define _do_panic(msg)                                               \
-  {                                                                  \
-    debug_break();                                                   \
-    std::cerr << msg << ", " << __FILE__ << " " << __LINE__ << "\n"; \
-    std::terminate();                                                \
+#define _do_panic(msg)                                                \
+  {                                                                   \
+    debug_break();                                                    \
+    std::cerr << "app panicked at " << msg << ", " << __FILE__ << " " \
+              << __LINE__ << "\n";                                    \
+    std::terminate();                                                 \
   }
 
-#define panic()                                    \
-  {                                                \
-    _do_panic("app terminated at explicit panic"); \
+#define panic()                  \
+  {                              \
+    _do_panic("explicit panic"); \
+  }
+
+#define unimplemented()               \
+  {                                   \
+    _do_panic("not yet implemented"); \
+  }
+
+#define unreachable()                                      \
+  {                                                        \
+    _do_panic("internal error: entered unreachable code"); \
   }
 
 // dv_assert are always enabled also in optimized release build. Use
@@ -52,16 +63,16 @@
   }
 #endif
 
-#include "types.h"
-#include "match.h"
 #include <variant>
+#include "match.h"
+#include "types.h"
 
 namespace davinci {
 
 template <typename T>
 struct Ok {
   Ok() = delete;
-  Ok(const T& rhs) : value(rhs) { }
+  Ok(const T& rhs) : value(rhs) {}
   Ok(T&& rhs) : value(std::move(rhs)) {}
 
   T value;
@@ -87,19 +98,22 @@ class Result {
   using err_type = Err<E>;
 
   Result() = delete;
-  Result(ok_type ok_value) : is_ok_(true), res_(std::move(ok_value)) {}
-  Result(err_type err_value) : is_ok_(true), res_(std::move(err_value))
-  {
-  }
+  Result(ok_type ok_value) : ok_(true), res_(std::move(ok_value)) {}
+  Result(err_type err_value) : ok_(true), res_(std::move(err_value)) {}
 
-   template <typename... TFs>
+  template <typename... TFs>
   auto do_match(TFs&&... funcs) -> void
   {
     match(res_)(std::forward<TFs>(funcs)...);
   }
 
+  explicit operator bool() { return ok_; }
+
+  auto is_ok() const -> bool { return ok_; }
+  auto is_err() const -> bool { return !ok_; }
+
  private:
-  bool is_ok_;
+  bool ok_;
   std::variant<ok_type, err_type> res_;
 };
 
