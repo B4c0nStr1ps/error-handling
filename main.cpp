@@ -2,102 +2,87 @@
 #include <string>
 #include "result.h"
 
-using namespace davinci;
+/*
+ * When a function needs to return a value or an error you can use the
+ * bs::Result<T, E> type. Interally Result<T, E> use as storage a
+ * std::variant<Ok<T>, Err<E>>. Ok<T> and Err<E> are two wrapper objects used to
+ * mock rust Ok, Err syntax and to simpy handle the case for Ok<void>. The usage
+ * of this two wrapper has the cost of one additional move constructor call.
+ * To check if Result has a value T or an error E you can use methods is_ok() or
+ * is_err(). Result also implements explicit bool operator() that works as a
+ * is_ok() call. To get the value if available use the unwrap() function. If
+ * called when Result is an error it will assert and terminate the program.
+ * Use unwrap_or(T default_value) to get the value or in case Result is an error
+ * to get default_value.
+ * Use unwrap_err() to ghe the error. If Result is a valid value will assert and
+ * terminate the program.
+ * Is also possible to use the match_result function to imitate the pattern
+ * matching syntax available in rust.
+ */
 
-struct My_test {
-  My_test() : value(0) { std::cout << "My_test ctor\n"; }
-  My_test(const My_test& rhs) : value(rhs.value)
-  {
-    std::cout << "My_test copy ctor\n";
-  }
-  My_test(My_test&& rhs) noexcept : value(rhs.value)
-  {
-    std::cout << "My_test move ctor\n";
-  }
-
-  int value = -1;
-};
-
-auto get_my_test() -> My_test { return My_test{}; }
-
-auto may_get_err() -> Result<void, int> { return Ok<void>{}; }
-
-auto may_get_err(int value) -> Result<int, std::string>
+auto divide(int a, int b) -> bs::Result<int, std::string>
 {
-  if (value < 0) {
-    return Err(std::string{"Input is less then 0"});
+  if (b == 0) {
+    return bs::Err(std::string("Division by 0 is not defined."));
   }
   else {
-    return Ok(value * value);
+    return bs::Ok((a / b));
   }
 }
 
 int main()
 {
-  std::cout << ".1\n";
-  My_test m1 = get_my_test();
-  std::cout << ".2\n";
-  std::variant<My_test, int> var1 = My_test{};
-  std::cout << ".3\n";
-  std::variant<My_test, int> var2 = 101;
-  {
-    std::cout << ".4\n";
-    Ok<My_test> my_test = My_test{};
-  }
-  {
-    std::cout << ".5\n";
-    Ok<void> my_test;
-  }
-  {
-    std::cout << ".6\n";
-    Result<My_test, int> res = My_test{};
-  }
-  {
-    std::cout << ".7\n";
-    Result<My_test, int> res = Ok(My_test{});
-    match_result(res, /************/
-                 [](Ok<My_test> value) { std::cout << "value!\n"; },
-                 [](Err<int> err) { std::cout << "err!\n"; });
-  }
-  {
-    std::cout << ".8\n";
-    Result<My_test, int> res = Ok(My_test{});
-    match_result(res, /************/
-                 [](const Ok<My_test>& value) { std::cout << "value!\n"; },
-                 [](const Err<int>& err) { std::cout << "err!\n"; });
-  }
-  {
-    std::cout << ".9\n";
-    auto res = may_get_err();
-  }
-  {
-    std::cout << ".10\n";
-    match_result(may_get_err() /*******/,
-                 [](Ok<void> value) { std::cout << "value!\n"; },
-                 [](const Err<int>& err) { std::cout << "err!\n"; });
-  }
-  {
-    std::cout << ".11\n";
-    match_result(may_get_err(20) /*******/,
-                 [](const Ok<int>& value) {
-                   std::cout << "value: " << value.value << "\n";
-                 },
-                 [](const Err<std::string>& err) {
-                   std::cout << "err: " << err.value << "\n";
-                 });
-  }
-  {
-    std::cout << ".12\n";
-    match_result(may_get_err(-20),
-                 [](const Ok<int>& value) {
-                   std::cout << "value: " << value.value << "\n";
-                 },
-                 [](const Err<std::string>& err) {
-                   std::cout << "err: " << err.value << "\n";
-                 });
-  }
-
   std::cout << "Error handling demo.\n";
+
+  // Valid division operation.
+  {
+    auto res = divide(8, 4);
+    assert(res.is_ok() == true);
+  }
+  // Invalid division by 0.
+  {
+    auto res = divide(8, 0);
+    assert(res.is_err() == true);
+  }
+  // Unwrap value.
+  {
+    auto res = divide(8, 4);
+    int value = res.unwrap();
+    assert(value == 2);
+  }
+  // Unwrap error.
+  {
+    auto res = divide(8, 0);
+    std::string error_message = res.unwrap_err();
+  }
+  // Unwrap_or invalid result.
+  {
+    auto res = divide(8, 0);
+    int value = res.unwrap_or(-1);
+    assert(value == -1);
+  }
+  // Pattern match a valid result.
+  {
+    auto res = divide(8, 4);
+    bs::match_result(res /***PADDING***/,
+                     [](const bs::Ok<int>& val) {
+                       std::cout << "result = " << val.value << "\n";
+                     },
+                     [](const bs::Err<std::string>& err) {
+                       std::cout << "Division error: " << err.value << "\n";
+                     });
+  }
+  // Pattern match an invalid result.
+  {
+    auto res = divide(8, 0);
+    bs::match_result(res /***PADDING***/,
+                     [](const bs::Ok<int>& val) {
+                       std::cout << "result = " << val.value << "\n";
+                     },
+                     [](const bs::Err<std::string>& err) {
+                       std::cout << "Division error: " << err.value << "\n";
+                     });
+  }
 
   return 0;
 }

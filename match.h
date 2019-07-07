@@ -2,7 +2,7 @@
 #include "overload.h"
 #include <variant>
 
-namespace davinci {
+namespace bs {
 
 template <typename... TVariants>
 constexpr auto match(TVariants&&... vs)
